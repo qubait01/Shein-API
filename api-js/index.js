@@ -5,83 +5,22 @@ import { chromium } from "playwright";
 const app = express();
 const port = process.env.PORT || 3000;
 
+// 🧠 Endereço do teu Browserless (ajusta o IP se for remoto)
+const BROWSERLESS_URL = "ws://194.163.155.26:3000"; // exemplo: ws://123.45.67.89:3000
+
 app.use(express.json());
-
-// Configurações
-const MAX_BROWSERS = 5;
-const MAX_PAGES = 10;
-const IDLE_TIMEOUT = 5 * 60 * 1000;
-
-let browsers = [];
-
-// Função para criar um novo browser com pool de páginas
-async function createBrowser() {
-  const browser = await chromium.launch({ headless: true });
-  const pages = [];
-  const createdAt = Date.now();
-
-  return { browser, pages, createdAt };
-}
-
-// Pega uma página livre ou cria nova
-async function getPage() {
-  // 1. Tenta usar um navegador existente com menos de MAX_PAGES
-  for (const b of browsers) {
-    if (b.pages.length < MAX_PAGES) {
-      const context = await b.browser.newContext({
-        viewport: { width: 375, height: 812 },
-        userAgent:
-          "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
-      });
-      const page = await context.newPage();
-      b.pages.push(page);
-
-      // libera a aba quando fechar
-      page.on("close", () => {
-        b.pages = b.pages.filter(p => p !== page);
-      });
-
-      return page;
-    }
-  }
-
-  // 2. Se não houver espaço, cria um novo navegador (até o limite)
-  if (browsers.length < MAX_BROWSERS) {
-    const newBrowser = await createBrowser();
-    browsers.push(newBrowser);
-
-    const context = await newBrowser.browser.newContext({
-      viewport: { width: 375, height: 812 },
-      userAgent:
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
-    });
-    const page = await context.newPage();
-    newBrowser.pages.push(page);
-
-    page.on("close", () => {
-      newBrowser.pages = newBrowser.pages.filter(p => p !== page);
-    });
-
-    return page;
-  }
-
-  throw new Error("🚨 Todos os navegadores e abas estão ocupados. Tente novamente em alguns segundos.");
-}
-
-// Fecha browsers inativos automaticamente
-setInterval(async () => {
-  for (const b of [...browsers]) {
-    if (b.pages.length === 0 && Date.now() - b.createdAt > IDLE_TIMEOUT) {
-      await b.browser.close();
-      browsers = browsers.filter(x => x !== b);
-      console.log("🧹 Browser fechado por inatividade");
-    }
-  }
-}, 60 * 1000);
 
 // Função principal de scraping
 async function scrapeSheinProducts(url) {
-  const page = await getPage();
+  // Conecta ao Browserless remoto
+  const browser = await chromium.connectOverCDP(BROWSERLESS_URL);
+  const context = await browser.newContext({
+    viewport: { width: 375, height: 812 },
+    userAgent:
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
+  });
+
+  const page = await context.newPage();
 
   try {
     await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60000 });
@@ -113,7 +52,8 @@ async function scrapeSheinProducts(url) {
   } catch (err) {
     return { status: "failed", error: err.message };
   } finally {
-    await page.close(); // ✅ fecha só a aba, mantém o navegador
+    await page.close();
+    await context.close(); // libera a sessão no Browserless
   }
 }
 
@@ -131,5 +71,5 @@ app.post("/api/shein-products", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`🚀 API Shein Products escalável rodando em http://localhost:${port}`);
+  console.log(`🚀 API Shein Products conectada ao Browserless rodando em http://localhost:${port}`);
 });
