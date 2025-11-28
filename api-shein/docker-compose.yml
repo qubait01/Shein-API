@@ -1,0 +1,127 @@
+services:
+  # =============================================
+  # 🌐 Browserless - Chrome Headless
+  # =============================================
+  infra:
+    build:
+      context: ./infra
+      dockerfile: Dockerfile
+    container_name: shein-infra
+    ports:
+      - "3000:3000"
+      - "6379:6379"
+    environment:
+      - BROWSERLESS_TOKEN=${BROWSERLESS_TOKEN:-mysecrettoken}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+    restart: unless-stopped
+    networks:
+      - shein-network
+    shm_size: '2gb'
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/pressure"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =============================================
+  # 🕷️ Scraper Node.js - Executor de Scraping
+  # =============================================
+  scraper:
+    build:
+      context: ./scraper
+      dockerfile: Dockerfile
+    container_name: shein-scraper
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - BROWSERLESS_WS=ws://browserless:3000
+      - BROWSERLESS_TOKEN=${BROWSERLESS_TOKEN:-mysecrettoken}
+      - PORT=3001
+      - LOG_LEVEL=info
+    depends_on:
+      browserless:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - shein-network
+    volumes:
+      - ./logs/scraper:/app/logs
+      - ./scraper:/app
+      - /app/node_modules
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =============================================
+  # 🐍 API Python - Interface Principal
+  # =============================================
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: shein-api
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ENV=production
+      - SCRAPER_URL=http://scraper:3001
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://redis:6379
+    depends_on:
+      scraper:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - shein-network
+    volumes:
+      - ./logs/api:/app/logs
+      - ./api:/app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =============================================
+  # 💾 Redis - Cache e Sessões
+  # =============================================
+
+
+# =============================================
+# 📊 Redes
+# =============================================
+networks:
+  shein-network:
+    driver: bridge
+    name: shein-network
+
+# =============================================
+# 💿 Volumes
+# =============================================
+volumes:
+  redis-data:
+    name: shein-redis-data

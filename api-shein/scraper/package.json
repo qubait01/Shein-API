@@ -1,0 +1,30 @@
+{
+  "name": "shein-scraper-service",
+  "version": "1.0.0",
+  "description": "Shein Cart Scraper Service with Playwright",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js",
+    "test": "node --test"
+  },
+  "keywords": [
+    "scraper",
+    "shein",
+    "playwright",
+    "browserless"
+  ],
+  "author": "Shein Scraper Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "playwright": "^1.40.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {},
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=9.0.0"
+  }
+}
