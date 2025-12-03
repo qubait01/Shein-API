@@ -82,7 +82,7 @@ async function scrapeSheinCart(url) {
     
     logger.info('🛒 Acessando URL:', url);
     await page.goto(url, { 
-      waitUntil: 'domcontentloaded', 
+      waitUntil: 'commit', 
       timeout: 60000 
     });
 
@@ -124,8 +124,9 @@ async function scrapeSheinCart(url) {
         document.querySelectorAll('.bsc-cart-be-shared-goods-item_v1')
       ).map((item) => {
         const name = item.querySelector('.bsc-cart-item-goods-title__content')?.innerText.trim() || null;
-        const image = item.querySelector('img')?.getAttribute('src') ||
-                     item.querySelector('img')?.getAttribute('data-src') || null;
+        // Priorizar data-src (lazy load) antes de src (placeholder)
+        const image = item.querySelector('img')?.getAttribute('data-src') ||
+                     item.querySelector('img')?.getAttribute('src') || null;
         const description = item.querySelector('.bsc-cart-item-goods-sale-attr__text')?.innerText.trim() || null;
         const price = item.querySelector('.bsc-cart-item-goods-price__sale-price')?.innerText.trim() ||
                      item.querySelector('.bsc-cart-item-goods-price__main')?.innerText.trim() || null;

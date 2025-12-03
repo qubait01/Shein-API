@@ -65,7 +65,7 @@ COPY --chown=scraper:scraper package*.json ./
 # =============================================
 # 🔨 Instalar dependências Node.js
 # =============================================
-RUN npm ci --only=production --no-audit --no-fund \
+RUN (npm ci --only=production --no-audit --no-fund || npm install --only=production --no-audit --no-fund) \
     && npm cache clean --force
 
 # =============================================

@@ -10,11 +10,11 @@ help: ## Mostra esta ajuda
 
 build: ## Builda todas as imagens
 	@echo "🔨 Buildando imagens..."
-	docker compose build
+	docker-compose build
 
 up: ## Sobe todos os containers
 	@echo "🚀 Subindo containers..."
-	docker compose up -d
+	docker-compose up -d
 	@echo "✅ Containers rodando!"
 	@echo ""
 	@echo "📍 Serviços disponíveis:"
@@ -26,7 +26,7 @@ up: ## Sobe todos os containers
 
 down: ## Para todos os containers
 	@echo "🛑 Parando containers..."
-	docker-compose down --remove-orphans --volumes
+	docker-compose down
 
 restart: down up ## Reinicia todos os containers
 

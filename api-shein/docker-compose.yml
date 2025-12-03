@@ -1,28 +1,33 @@
+
 services:
   # =============================================
   # 🌐 Browserless - Chrome Headless
   # =============================================
-  infra:
-    build:
-      context: ./infra
-      dockerfile: Dockerfile
-    container_name: shein-infra
+  browserless:
+    image: browserless/chrome:latest
+    container_name: shein-browserless
     ports:
       - "3000:3000"
-      - "6379:6379"
     environment:
-      - BROWSERLESS_TOKEN=${BROWSERLESS_TOKEN:-mysecrettoken}
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - CONCURRENT=5
+      - TOKEN=${BROWSERLESS_TOKEN:-mysecrettoken}
+      - TIMEOUT=60000
+      - PREBOOT_CHROME=true
+      - MAX_CONCURRENT_SESSIONS=10
+      - KEEPALIVE=true
+      - DEBUG=browserless*
     restart: unless-stopped
     networks:
       - shein-network
     shm_size: '2gb'
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/pressure"]
+      # Usar curl para verificar o endpoint /pressure (endpoint válido do browserless)
+      test: ["CMD", "curl", "-f", "http://localhost:3000/pressure?token=mysecrettoken123"]
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 40s
+      retries: 5
+      # Aumentar start_period porque o Chrome em container pode demorar a inicializar
+      start_period: 90s
     logging:
       driver: "json-file"
       options:
@@ -109,7 +114,27 @@ services:
   # =============================================
   # 💾 Redis - Cache e Sessões
   # =============================================
-
+  redis:
+    image: redis:7-alpine
+    container_name: shein-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    networks:
+      - shein-network
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
 
 # =============================================
 # 📊 Redes
