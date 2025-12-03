@@ -124,9 +124,30 @@ async function scrapeSheinCart(url) {
         document.querySelectorAll('.bsc-cart-be-shared-goods-item_v1')
       ).map((item) => {
         const name = item.querySelector('.bsc-cart-item-goods-title__content')?.innerText.trim() || null;
-        // Priorizar data-src (lazy load) antes de src (placeholder)
-        const image = item.querySelector('img')?.getAttribute('data-src') ||
-                     item.querySelector('img')?.getAttribute('src') || null;
+        // Robust image extraction
+        const imgEl = item.querySelector('img');
+        let image = null;
+        
+        if (imgEl) {
+          // Attributes to check in order of priority
+          const attributes = ['data-src', 'data-lazy-src', 'data-url', 'data-img-src', 'src'];
+          
+          for (const attr of attributes) {
+            const val = imgEl.getAttribute(attr);
+            if (val && !val.includes('placeholder') && !val.includes('spacer') && !val.includes('data:image')) {
+              image = val;
+              break;
+            }
+          }
+          
+          // Fallback to src if nothing better found
+          if (!image) image = imgEl.getAttribute('src');
+          
+          // Fix protocol-relative URLs
+          if (image && image.startsWith('//')) {
+            image = 'https:' + image;
+          }
+        }
         const description = item.querySelector('.bsc-cart-item-goods-sale-attr__text')?.innerText.trim() || null;
         const price = item.querySelector('.bsc-cart-item-goods-price__sale-price')?.innerText.trim() ||
                      item.querySelector('.bsc-cart-item-goods-price__main')?.innerText.trim() || null;
