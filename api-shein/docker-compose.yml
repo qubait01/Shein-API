@@ -81,7 +81,7 @@ services:
       dockerfile: Dockerfile
     container_name: shein-api
     ports:
-      - "8000:8000"
+      - "9000:8000"
     environment:
       - PYTHONUNBUFFERED=1
       - ENV=production
