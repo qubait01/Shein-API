@@ -80,11 +80,65 @@ async function scrapeSheinCart(url) {
 
     page = await context.newPage();
     
-    logger.info('🛒 Acessando URL:', url);
     await page.goto(url, { 
       waitUntil: 'commit', 
       timeout: 60000 
     });
+
+    // 🇧🇷 Check for Brazil redirection and force switch to US
+    try {
+      await page.waitForLoadState('domcontentloaded');
+      
+      const currentUrl = page.url();
+      const bodyAttrs = await page.evaluate(() => {
+        const body = document.body;
+        return {
+          siteuid: body.getAttribute('siteuid'),
+          langPath: body.getAttribute('lang-path')
+        };
+      });
+
+      logger.info('📍 URL Atual:', currentUrl);
+      logger.info('� Body Attrs:', bodyAttrs);
+
+      if (currentUrl.includes('br.shein.com') || bodyAttrs.siteuid === 'mbr' || bodyAttrs.langPath === '/br') {
+        logger.info('🇧🇷 Site Brasil detectado. Forçando troca para US...');
+
+        // Inject Cookies for US/USD
+        await context.addCookies([
+          { name: 'currency', value: 'USD', domain: '.shein.com', path: '/' },
+          { name: 'loc', value: 'US', domain: '.shein.com', path: '/' },
+          { name: 'gl_currency', value: 'USD', domain: '.shein.com', path: '/' }, // Additional potential cookie
+          { name: 'pf', value: 'USD', domain: '.shein.com', path: '/' } // Another potential one
+        ]);
+
+        // Construct US URL
+        // Replace 'br.shein' with 'us.shein' or 'm.shein'
+        // And ensure no localcountry=BR/AO params persist if possible, or override them
+        let usUrl = currentUrl.replace('br.shein.com', 'us.shein.com');
+        
+        // If it's still the same (e.g. m.shein.com but redirected content), try appending params
+        if (usUrl === currentUrl) {
+             usUrl = usUrl.replace('//m.shein.com', '//us.shein.com');
+        }
+        
+        // Force query params
+        if (usUrl.includes('?')) {
+          usUrl += '&currency=USD&localcountry=US';
+        } else {
+          usUrl += '?currency=USD&localcountry=US';
+        }
+
+        logger.info('🇺🇸 Redirecionando para:', usUrl);
+        
+        await page.goto(usUrl, {
+          waitUntil: 'domcontentloaded',
+          timeout: 60000
+        });
+      }
+    } catch (e) {
+      logger.warn('⚠️ Erro ao tentar trocar para US:', e.message);
+    }
 
     // Esperar pelo seletor dos produtos
     try {
