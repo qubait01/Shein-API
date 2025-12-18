@@ -85,59 +85,40 @@ async function scrapeSheinCart(url) {
       timeout: 60000 
     });
 
-    // 🇧🇷 Check for Brazil redirection and force switch to US
+    // � UI Interaction to Switch Currency/Country
     try {
-      await page.waitForLoadState('domcontentloaded');
+      // Wait for the location icon (globe)
+      const locationIconSelector = '[da-eid="1lf6sba1lsd"]';
+      const icon = await page.$(locationIconSelector);
       
-      const currentUrl = page.url();
-      const bodyAttrs = await page.evaluate(() => {
-        const body = document.body;
-        return {
-          siteuid: body.getAttribute('siteuid'),
-          langPath: body.getAttribute('lang-path')
-        };
-      });
-
-      logger.info('📍 URL Atual:', currentUrl);
-      logger.info('� Body Attrs:', bodyAttrs);
-
-      if (currentUrl.includes('br.shein.com') || bodyAttrs.siteuid === 'mbr' || bodyAttrs.langPath === '/br') {
-        logger.info('🇧🇷 Site Brasil detectado. Forçando troca para US...');
-
-        // Inject Cookies for US/USD
-        await context.addCookies([
-          { name: 'currency', value: 'USD', domain: '.shein.com', path: '/' },
-          { name: 'loc', value: 'US', domain: '.shein.com', path: '/' },
-          { name: 'gl_currency', value: 'USD', domain: '.shein.com', path: '/' }, // Additional potential cookie
-          { name: 'pf', value: 'USD', domain: '.shein.com', path: '/' } // Another potential one
-        ]);
-
-        // Construct US URL
-        // Replace 'br.shein' with 'us.shein' or 'm.shein'
-        // And ensure no localcountry=BR/AO params persist if possible, or override them
-        let usUrl = currentUrl.replace('br.shein.com', 'us.shein.com');
+      if (icon) {
+        logger.info('🌍 Ícone de localização encontrado. Tentando trocar para US...');
+        await icon.click();
         
-        // If it's still the same (e.g. m.shein.com but redirected content), try appending params
-        if (usUrl === currentUrl) {
-             usUrl = usUrl.replace('//m.shein.com', '//us.shein.com');
+        // Wait for the country list drawer/modal
+        // We look for the text "United States" in the list
+        const usOptionSelector = 'text="United States"';
+        
+        try {
+          await page.waitForSelector(usOptionSelector, { timeout: 5000 });
+          await page.click(usOptionSelector);
+          logger.info('🇺🇸 Selecionado "United States". Aguardando atualização...');
+          
+          // Wait for page reload or update
+          await page.waitForLoadState('networkidle', { timeout: 10000 });
+          
+        } catch (err) {
+          logger.warn('⚠️ Opção "United States" não encontrada ou erro ao clicar:', err.message);
+          
+          // Fallback: Try searching for "Angola" if requested, or just log available options
+          // For now, we stick to US as the goal is USD.
         }
-        
-        // Force query params
-        if (usUrl.includes('?')) {
-          usUrl += '&currency=USD&localcountry=US';
-        } else {
-          usUrl += '?currency=USD&localcountry=US';
-        }
-
-        logger.info('🇺🇸 Redirecionando para:', usUrl);
-        
-        await page.goto(usUrl, {
-          waitUntil: 'domcontentloaded',
-          timeout: 60000
-        });
+      } else {
+        logger.info('ℹ️ Ícone de localização não encontrado (pode já estar na versão correta ou layout diferente).');
       }
+
     } catch (e) {
-      logger.warn('⚠️ Erro ao tentar trocar para US:', e.message);
+      logger.warn('⚠️ Erro na interação de UI:', e.message);
     }
 
     // Esperar pelo seletor dos produtos
