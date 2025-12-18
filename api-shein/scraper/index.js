@@ -85,33 +85,36 @@ async function scrapeSheinCart(url) {
       timeout: 60000 
     });
 
-    // � UI Interaction to Switch Currency/Country
+    // 🌍 UI Interaction to Switch Currency/Country
     try {
-      // Wait for the location icon (globe)
-      const locationIconSelector = '[da-eid="1lf6sba1lsd"]';
-      const icon = await page.$(locationIconSelector);
+      // Wait for the location icon (globe) - User provided selector
+      const locationIconSelector = '[da-eid="zd6ajmrb3u"]';
+      // Fallback selector just in case
+      const locationIconSelectorFallback = '.bsc-cart-be-shared-location';
+      
+      let icon = await page.$(locationIconSelector);
+      if (!icon) {
+         icon = await page.$(locationIconSelectorFallback);
+      }
       
       if (icon) {
-        logger.info('🌍 Ícone de localização encontrado. Tentando trocar para US...');
+        logger.info('🌍 Ícone de localização encontrado. Tentando trocar para Angola (USD)...');
         await icon.click();
         
         // Wait for the country list drawer/modal
-        // We look for the text "United States" in the list
-        const usOptionSelector = 'text="United States"';
+        // We look for the text "Angola" in the list
+        const angolaOptionSelector = 'text="Angola"';
         
         try {
-          await page.waitForSelector(usOptionSelector, { timeout: 5000 });
-          await page.click(usOptionSelector);
-          logger.info('🇺🇸 Selecionado "United States". Aguardando atualização...');
+          await page.waitForSelector(angolaOptionSelector, { timeout: 5000 });
+          await page.click(angolaOptionSelector);
+          logger.info('�� Selecionado "Angola". Aguardando atualização...');
           
           // Wait for page reload or update
-          await page.waitForLoadState('networkidle', { timeout: 10000 });
+          await page.waitForLoadState('networkidle', { timeout: 15000 });
           
         } catch (err) {
-          logger.warn('⚠️ Opção "United States" não encontrada ou erro ao clicar:', err.message);
-          
-          // Fallback: Try searching for "Angola" if requested, or just log available options
-          // For now, we stick to US as the goal is USD.
+          logger.warn('⚠️ Opção "Angola" não encontrada ou erro ao clicar:', err.message);
         }
       } else {
         logger.info('ℹ️ Ícone de localização não encontrado (pode já estar na versão correta ou layout diferente).');
